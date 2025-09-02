@@ -1,18 +1,11 @@
+#!/usr/bin/env python3
 import io, os, zipfile, re
 import numpy as np
+import cv2
 import streamlit as st
 import pandas as pd
 
-# Try to import OpenCV; show a helpful message if missing (e.g., on Streamlit Cloud)
-try:
-    import cv2
-except ModuleNotFoundError:
-    st.error(
-        "OpenCV (cv2) is not installed. On Streamlit Cloud, add `opencv-python-headless` to your `requirements.txt` and pin Python to 3.11.\n"
-        "Example requirements:\n"
-        "streamlit==1.36.0\nopencv-python-headless==4.9.0.80\nnumpy==1.26.4\npandas==2.2.2\n"
-    )
-    st.stop()
+# -------------------- Core utilities --------------------
 
 def imread_rgb_from_bytes(data: bytes):
     arr = np.frombuffer(data, np.uint8)
