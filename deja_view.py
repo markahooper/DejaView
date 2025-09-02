@@ -14,6 +14,33 @@ except ModuleNotFoundError:
     )
     st.stop()
 
+# --- Streamlit compatibility helpers (older/newer versions) ---
+def image_compat(img, **kwargs):
+    try:
+        return image_compat(img, **kwargs)
+    except TypeError:
+        # Fall back to deprecated arg name
+        if 'use_container_width' in kwargs:
+            k = dict(kwargs)
+            k['use_column_width'] = k.pop('use_container_width')
+            return image_compat(img, **k)
+        return image_compat(img)
+
+def dataframe_compat(df, **kwargs):
+    try:
+        return dataframe_compat(df, **kwargs)
+    except TypeError:
+        k = dict(kwargs)
+        k.pop('use_container_width', None)
+        return dataframe_compat(df, **k)
+
+def progress_compat(val, text=None):
+    try:
+        return progress_compat(val, text=text)
+    except TypeError:
+        return progress_compat(val)
+
+
 def imread_rgb_from_bytes(data: bytes):
     arr = np.frombuffer(data, np.uint8)
     bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -363,7 +390,7 @@ if mode.startswith("Composite"):
         if sample_choice_comp:
             try:
                 with open(sample_choice_comp, "rb") as fh:
-                    st.image(fh.read(), caption=sample_choice_comp, use_container_width=True)
+                    image_compat(fh.read(), caption=sample_choice_comp, use_container_width=True)
             except Exception:
                 pass
 else:
@@ -383,7 +410,7 @@ else:
         if sample_choice_panels:
             try:
                 with open(sample_choice_panels, "rb") as fh:
-                    st.image(fh.read(), caption=sample_choice_panels, use_container_width=True)
+                    image_compat(fh.read(), caption=sample_choice_panels, use_container_width=True)
             except Exception:
                 pass
 
@@ -455,7 +482,7 @@ if run:
         rows_data = []
         views = []  # (i, j, matches_png, overlay_png, inliers, variant)
         n = len(panels)
-        prog = st.progress(0.0, text="Matching...")
+        prog = progress_compat(0.0, text="Matching...")
         total = n*(n-1)//2
         done = 0
         for i in range(n):
@@ -487,7 +514,7 @@ if run:
         with st.container():
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.subheader("Candidate overlaps")
-            st.dataframe(df, use_container_width=True)
+            dataframe_compat(df, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
         if views:
@@ -496,8 +523,8 @@ if run:
                 with st.container():
                     st.markdown('<div class="card">', unsafe_allow_html=True)
                     st.markdown(f"**Panels {i}–{j}** · transform `{name}` · inliers **{inl}**")
-                    st.image(matches_png, caption="Inlier keypoint matches", use_container_width=True)
-                    st.image(overlay_png, caption="Overlay with matched region (convex hull) on Panel A", use_container_width=True)
+                    image_compat(matches_png, caption="Inlier keypoint matches", use_container_width=True)
+                    image_compat(overlay_png, caption="Overlay with matched region (convex hull) on Panel A", use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
             zip_buf = io.BytesIO()
@@ -516,9 +543,9 @@ if run:
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.subheader("Original upload")
             if isinstance(input_preview, list):
-                st.image(input_preview, caption=[f"Panel {i+1}" for i in range(len(input_preview))], use_container_width=True)
+                image_compat(input_preview, caption=[f"Panel {i+1}" for i in range(len(input_preview))], use_container_width=True)
             else:
-                st.image(input_preview, caption="Composite image", use_container_width=True)
+                image_compat(input_preview, caption="Composite image", use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     except Exception as e:
