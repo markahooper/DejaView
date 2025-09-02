@@ -286,7 +286,8 @@ st.set_page_config(page_title="Deja View", layout="wide")
 
 # Global CSS: Poppins font + colour scheme
 st.markdown(
-    \"\"\"\n<style>
+    """
+<style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
 :root {
   --ink: #57554e;
@@ -323,7 +324,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: 0.2px; color: var(--ink); }
 .sample-label { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem; color: var(--ink); }
 .thumb { border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; padding: 4px; }
 </style>
-\"\"\",
+""",
     unsafe_allow_html=True,
 )
 
