@@ -14,6 +14,14 @@ except ModuleNotFoundError:
     )
     st.stop()
 
+# Stash original Streamlit funcs to avoid recursion in compat wrappers
+if not hasattr(st, '_orig_image'):
+    st._orig_image = st.image
+if not hasattr(st, '_orig_dataframe'):
+    st._orig_dataframe = st.dataframe
+if not hasattr(st, '_orig_progress'):
+    st._orig_progress = st.progress
+
 # --- Streamlit compatibility helpers (older/newer versions) ---
 def image_compat(img, **kwargs):
     try:
@@ -39,6 +47,13 @@ def progress_compat(val, text=None):
         return progress_compat(val, text=text)
     except TypeError:
         return progress_compat(val)
+# Update helper for progress objects that may not accept 'text'
+def progress_update_compat(pb, val, text=None):
+    try:
+        return pb.progress(val, text=text)
+    except TypeError:
+        return pb.progress(val)
+
 
 
 def imread_rgb_from_bytes(data: bytes):
@@ -507,7 +522,7 @@ if run:
                     views.append((i+1, j+1, matches_png, overlay_png, int(best["inliers"]), best["variant"]))
 
                 done += 1
-                prog.progress(done/total, text=f"Matching {done}/{total}")
+                progress_update_compat(prog, done/total, text=f"Matching {done}/{total}")
 
         df = pd.DataFrame(rows_data).sort_values("inliers", ascending=False).reset_index(drop=True)
 
