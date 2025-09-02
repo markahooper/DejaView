@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import io, os, zipfile, re
 import numpy as np
 import streamlit as st
@@ -8,54 +9,34 @@ try:
     import cv2
 except ModuleNotFoundError:
     st.error(
-        "OpenCV (cv2) is not installed. On Streamlit Cloud, add `opencv-python-headless` to your `requirements.txt` and pin Python to 3.11.\n"
+        "OpenCV (cv2) is not installed. On Streamlit Cloud, add `opencv-python-headless` to your "
+        "`requirements.txt` and pin Python to 3.11.\n"
         "Example requirements:\n"
-        "streamlit==1.36.0\nopencv-python-headless==4.9.0.80\nnumpy==1.26.4\npandas==2.2.2\n"
+        "streamlit==1.36.0\nopencv-python-headless>=4.12.0.88,<5\nnumpy==1.26.4\npandas==2.2.2\n"
     )
     st.stop()
 
-# Stash original Streamlit funcs to avoid recursion in compat wrappers
-if not hasattr(st, '_orig_image'):
-    st._orig_image = st.image
-if not hasattr(st, '_orig_dataframe'):
-    st._orig_dataframe = st.dataframe
-if not hasattr(st, '_orig_progress'):
-    st._orig_progress = st.progress
-
-# --- Streamlit compatibility helpers (older/newer versions) ---
+# -------------------- Small compatibility helpers --------------------
 def image_compat(img, **kwargs):
+    # Render image with compatibility across Streamlit versions.
     try:
-        return image_compat(img, **kwargs)
+        return st.image(img, **kwargs)
     except TypeError:
-        # Fall back to deprecated arg name
-        if 'use_container_width' in kwargs:
+        if "use_container_width" in kwargs:
             k = dict(kwargs)
-            k['use_column_width'] = k.pop('use_container_width')
-            return image_compat(img, **k)
-        return image_compat(img)
+            k["use_column_width"] = k.pop("use_container_width")
+            return st.image(img, **k)
+        return st.image(img)
 
 def dataframe_compat(df, **kwargs):
     try:
-        return dataframe_compat(df, **kwargs)
+        return st.dataframe(df, **kwargs)
     except TypeError:
         k = dict(kwargs)
-        k.pop('use_container_width', None)
-        return dataframe_compat(df, **k)
+        k.pop("use_container_width", None)
+        return st.dataframe(df, **k)
 
-def progress_compat(val, text=None):
-    try:
-        return progress_compat(val, text=text)
-    except TypeError:
-        return progress_compat(val)
-# Update helper for progress objects that may not accept 'text'
-def progress_update_compat(pb, val, text=None):
-    try:
-        return pb.progress(val, text=text)
-    except TypeError:
-        return pb.progress(val)
-
-
-
+# -------------------- Core utilities --------------------
 def imread_rgb_from_bytes(data: bytes):
     arr = np.frombuffer(data, np.uint8)
     bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -98,7 +79,7 @@ def gen_variants(rgb, try_flips=True, try_rot=True, extra_angles=None):
     return outs
 
 def build_text_suppression_mask(rgb):
-    """Build a mask (255 = allowed, 0 = suppressed) for text-like regions using MSER."""
+    # Build a mask (255 = allowed, 0 = suppressed) for text-like regions using MSER.
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     H, W = gray.shape[:2]
     mser = cv2.MSER_create()
@@ -130,7 +111,7 @@ def build_text_suppression_mask(rgb):
     return cv2.bitwise_not(text_mask)
 
 def orb_match_details(A, B, ratio=0.78, nfeatures=2000, fastThreshold=10, suppress_text=True):
-    """Return (inliers, H, good, kpa, kpb, mask) with optional text suppression masks."""
+    # Return (inliers, H, good, kpa, kpb, mask) with optional text suppression masks.
     orb = cv2.ORB_create(nfeatures=nfeatures, fastThreshold=fastThreshold, edgeThreshold=15, patchSize=31)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
     gA = cv2.cvtColor(A, cv2.COLOR_RGB2GRAY)
@@ -301,12 +282,11 @@ def list_sample_images():
     return [f for (_, f) in items]
 
 # -------------------- Streamlit UI --------------------
-
 st.set_page_config(page_title="Deja View", layout="wide")
 
 # Global CSS: Poppins font + colour scheme
-st.markdown("""
-<style>
+st.markdown(
+    \"\"\"\n<style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
 :root {
   --ink: #57554e;
@@ -339,11 +319,13 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: 0.2px; color: var(--ink); }
 .stButton>button:hover, .stDownloadButton>button:hover { background: var(--sun); }
 [data-testid="stSidebar"] { border-right: 1px solid rgba(0,0,0,0.06); }
 [data-testid="stSidebar"] .block-container { padding-top: 1rem; }
-/* Bigger custom label next to our sample checkbox */
+/* Bigger label for sample checkbox */
 .sample-label { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem; color: var(--ink); }
 .thumb { border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; padding: 4px; }
 </style>
-""", unsafe_allow_html=True)
+\"\"\",
+    unsafe_allow_html=True,
+)
 
 st.title("Deja View")
 st.caption("By Mark Hooper · Detects potential overlaps between scientific figure panels and visualizes inlier keypoint matches + matched-region polygon.")
@@ -395,12 +377,12 @@ if mode.startswith("Composite"):
         st.markdown('<div class="sample-label">Use one of our sample images to test</div>', unsafe_allow_html=True)
         use_sample_comp = st.checkbox("", value=False, key="use_sample_comp", label_visibility="collapsed")
     with cols_upload[1]:
-        if 'use_sample_comp' in st.session_state and st.session_state['use_sample_comp']:
-            options = list_sample_images()
+        if st.session_state.get('use_sample_comp'):
+            options = sample_files
             if options:
                 sample_choice_comp = st.selectbox("Select sample", options, key="sample_comp_select")
             else:
-                st.caption("No samples found") 
+                st.caption("No samples found")
     with cols_upload[2]:
         if sample_choice_comp:
             try:
@@ -415,12 +397,12 @@ else:
         st.markdown('<div class="sample-label">Use one of our sample images to test</div>', unsafe_allow_html=True)
         use_sample_pan = st.checkbox("", value=False, key="use_sample_pan", label_visibility="collapsed")
     with cols_upload[1]:
-        if 'use_sample_pan' in st.session_state and st.session_state['use_sample_pan']:
-            options = list_sample_images()
+        if st.session_state.get('use_sample_pan'):
+            options = sample_files
             if options:
                 sample_choice_panels = st.selectbox("Select sample", options, key="sample_pan_select")
             else:
-                st.caption("No samples found") 
+                st.caption("No samples found")
     with cols_upload[2]:
         if sample_choice_panels:
             try:
@@ -432,7 +414,6 @@ else:
 run = st.button("Run detection", type="primary")
 
 # -------------------- Run pipeline --------------------
-
 if run:
     try:
         input_preview = None
@@ -497,14 +478,21 @@ if run:
         rows_data = []
         views = []  # (i, j, matches_png, overlay_png, inliers, variant)
         n = len(panels)
-        prog = progress_compat(0.0, text="Matching...")
+
+        # Create progress bar (handle older Streamlit without 'text')
+        try:
+            prog = st.progress(0.0, text="Matching...")
+        except TypeError:
+            prog = st.progress(0.0)
+
         total = n*(n-1)//2
         done = 0
         for i in range(n):
             for j in range(i+1, n):
                 A = panels[i]
                 best = {"inliers":0, "H":None, "variant":"orig", "good":None, "kpa":None, "kpb":None, "mask":None, "Bimg":None}
-                extra_angles = (list(range(angle_step, 360, angle_step)) if ('angle_step' in globals() and angle_step and angle_step > 0) else None)
+                angle_step_val = angle_step if angle_step else 0
+                extra_angles = (list(range(angle_step_val, 360, angle_step_val)) if angle_step_val and angle_step_val > 0 else None)
                 for name, Bv in gen_variants(panels[j], try_flips=try_flip, try_rot=try_rot, extra_angles=extra_angles):
                     inl, Hm, good, kpa, kpb, mask = orb_match_details(A, Bv, ratio=0.78, nfeatures=2000, fastThreshold=10, suppress_text=suppress_text)
                     if inl > best["inliers"]:
@@ -520,9 +508,11 @@ if run:
                     overlay_rgb = make_overlay_hull(A, best["Bimg"], best["H"], inlier_ptsA)
                     overlay_png = imencode_png(overlay_rgb)
                     views.append((i+1, j+1, matches_png, overlay_png, int(best["inliers"]), best["variant"]))
-
                 done += 1
-                progress_update_compat(prog, done/total, text=f"Matching {done}/{total}")
+                try:
+                    prog.progress(done/total, text=f"Matching {done}/{total}")
+                except TypeError:
+                    prog.progress(done/total)
 
         df = pd.DataFrame(rows_data).sort_values("inliers", ascending=False).reset_index(drop=True)
 
