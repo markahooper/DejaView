@@ -354,20 +354,9 @@ with st.sidebar:
         rows = st.number_input("Rows", min_value=1, max_value=10, value=2, step=1)
         cols = st.number_input("Cols", min_value=1, max_value=10, value=3, step=1)
 
-    st.markdown("---")
-    st.subheader("Samples")
-    sample_files = list_sample_images()
-    if sample_files:
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-            for f in sample_files:
-                with open(f, "rb") as fh:
-                    z.writestr(os.path.basename(f), fh.read())
-        st.download_button("Download sample images to try", data=buf.getvalue(), file_name="deja_view_samples.zip")
-    else:
-        st.caption("No sample images found in the app folder.")
-
 # --------------- Inputs (with sample picker + thumbnail preview) ---------------
+sample_files = list_sample_images()
+
 sample_choice_comp = None
 sample_choice_panels = None
 
@@ -375,8 +364,11 @@ if mode.startswith("Composite"):
     comp_file = st.file_uploader("Upload composite image", type=["png","jpg","jpeg","tif","tiff","bmp","webp"])
     cols_upload = st.columns([1, 2, 2])
     with cols_upload[0]:
-        st.markdown('<div class="sample-label">Use one of our sample images to test</div>', unsafe_allow_html=True)
-        use_sample_comp = st.checkbox("", value=False, key="use_sample_comp", label_visibility="collapsed")
+        ctext, ctoggle = st.columns([5,1])
+        with ctext:
+            st.markdown('<div class="sample-label">Use one of our sample images to test</div>', unsafe_allow_html=True)
+        with ctoggle:
+            use_sample_comp = st.checkbox("", value=False, key="use_sample_comp", label_visibility="collapsed")
     with cols_upload[1]:
         if st.session_state.get('use_sample_comp'):
             options = sample_files
@@ -395,8 +387,11 @@ else:
     panel_files = st.file_uploader("Upload panel images (2 or more)", type=["png","jpg","jpeg","tif","tiff","bmp","webp"], accept_multiple_files=True)
     cols_upload = st.columns([1, 2, 2])
     with cols_upload[0]:
-        st.markdown('<div class="sample-label">Use one of our sample images to test</div>', unsafe_allow_html=True)
-        use_sample_pan = st.checkbox("", value=False, key="use_sample_pan", label_visibility="collapsed")
+        ptext, ptoggle = st.columns([5,1])
+        with ptext:
+            st.markdown('<div class="sample-label">Use one of our sample images to test</div>', unsafe_allow_html=True)
+        with ptoggle:
+            use_sample_pan = st.checkbox("", value=False, key="use_sample_pan", label_visibility="collapsed")
     with cols_upload[1]:
         if st.session_state.get('use_sample_pan'):
             options = sample_files
@@ -517,12 +512,6 @@ if run:
 
         df = pd.DataFrame(rows_data).sort_values("inliers", ascending=False).reset_index(drop=True)
 
-        with st.container():
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.subheader("Candidate overlaps")
-            dataframe_compat(df, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
         if views:
             st.subheader("Matches & Matched Region")
             for (i, j, matches_png, overlay_png, inl, name) in views:
@@ -533,16 +522,12 @@ if run:
                     image_compat(overlay_png, caption="Overlay with matched region (convex hull) on Panel A", use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-            zip_buf = io.BytesIO()
-            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as z:
-                z.writestr("summary.csv", df.to_csv(index=False))
-                for (i, j, matches_png, overlay_png, inl, name) in views:
-                    z.writestr(f"pair_{i}_{j}_{name}_inl{inl}_matches.png", matches_png)
-                    z.writestr(f"pair_{i}_{j}_{name}_inl{inl}_overlay_hull.png", overlay_png)
-            st.download_button("Download results (ZIP)", data=zip_buf.getvalue(), file_name="deja_view_results.zip")
-
-        else:
-            st.info("No pairs met the inlier threshold. Try lowering 'Min inliers to keep' or increasing 'Downscale largest side'.")
+        # --- Candidate overlaps (moved below images) ---
+        with st.container():
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.subheader("Candidate overlaps")
+            dataframe_compat(df, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # --- Original upload at the bottom inside an expander ---
         with st.expander("Show original upload", expanded=False):
